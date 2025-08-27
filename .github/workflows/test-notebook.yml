@@ -33,9 +33,9 @@ jobs:
 
       - name: Clean Jupyter notebook
         run: |
-          jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace demo.ipynb
+          jupyter nbconvert --ClearOutputPreprocessor.enabled=True --inplace main.ipynb
 
       # Run notebook tests
-      - name: Run demo.ipynb with pytest-nbval
+      - name: Run main.ipynb with pytest-nbval
         run: |
-          pytest --nbval-lax demo.ipynb
+          pytest --nbval-lax main.ipynb
