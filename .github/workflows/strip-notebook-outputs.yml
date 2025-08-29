@@ -1,0 +1,70 @@
+name: Strip Notebook Outputs
+
+on:
+  push:
+    paths:
+      - 'main.ipynb'        # adjust if your notebook lives elsewhere
+  workflow_dispatch:        # allows manual runs from the Actions tab
+
+permissions:
+  contents: write           # needed to push the cleaned file
+
+jobs:
+  strip:
+    # avoid infinite loops when this workflow commits back to the repo
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install nbconvert + nbformat
+        run: |
+          python -m pip install --upgrade pip
+          pip install nbconvert nbformat
+
+      - name: Clear outputs from main.ipynb
+        run: |
+          python - <<'PY'
+          import os, nbformat
+          from nbconvert.preprocessors import ClearOutputPreprocessor
+
+          path = "main.ipynb"  # change this if needed
+          if not os.path.exists(path):
+              raise SystemExit(0)
+
+          with open(path, "r", encoding="utf-8") as f:
+              nb = nbformat.read(f, as_version=4)
+
+          clearer = ClearOutputPreprocessor()
+          nb_cleared, _ = clearer.preprocess(nb, {})
+
+          with open(path, "w", encoding="utf-8") as f:
+              nbformat.write(nb_cleared, f)
+          PY
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet main.ipynb; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push cleaned notebook
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add main.ipynb
+          git commit -m "ci: strip outputs from main.ipynb"
+          git push
